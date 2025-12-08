@@ -66,7 +66,7 @@
     <repositories>
         <repository>
             <id>pluginwiki-repo</id>
-            <url>https://repo.bsdevelopment.org</url>
+            <url>https://repo.bsdevelopment.org/releases</url>
         </repository>
         <repository>
             <id>velocitypowered-repo</id>
@@ -82,7 +82,7 @@
         <dependency>
             <groupId>com.github.thatsmusic99</groupId>
             <artifactId>ConfigurationMaster-API</artifactId>
-            <version>v2.0.0-BETA-9</version>
+            <version>v2.0.0-rc.3</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
