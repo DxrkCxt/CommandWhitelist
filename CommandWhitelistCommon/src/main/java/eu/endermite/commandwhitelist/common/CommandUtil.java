@@ -7,8 +7,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class CommandUtil {
+
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
     /**
      * Filters blocked command suggestions from provided collection of strings
@@ -19,10 +22,11 @@ public class CommandUtil {
      * @return Filtered list of suggestions
      */
     public static List<String> filterSuggestions(String buffer, Collection<String> suggestions, Collection<String> blockedSubCommands) {
+        if (suggestions.isEmpty() || blockedSubCommands.isEmpty())
+            return suggestions instanceof List ? (List<String>) suggestions : new ArrayList<>(suggestions);
         if (buffer.startsWith("/"))
             buffer = buffer.substring(1);
         List<String> suggestionsList = new ArrayList<>(suggestions);
-        if (suggestions.isEmpty() || blockedSubCommands.isEmpty()) return suggestionsList;
         for (String s : blockedSubCommands) {
             String scommand = cutLastArgument(s);
             if (buffer.startsWith(scommand)) {
@@ -61,10 +65,67 @@ public class CommandUtil {
      * @return Command label
      */
     public static String getCommandLabel(String cmd) {
-        String[] parts = cmd.split(" ");
-        if (parts[0].startsWith("/"))
-            parts[0] = parts[0].substring(1);
-        return parts[0];
+        int space = cmd.indexOf(' ');
+        String label = space == -1 ? cmd : cmd.substring(0, space);
+        if (label.startsWith("/"))
+            label = label.substring(1);
+        return label;
+    }
+
+    /**
+     * Splits a command into lowercase tokens for robust subcommand matching.
+     * Drops a leading slash, collapses repeated whitespace, and strips a leading
+     * "namespace:" from the command label so a blocked subcommand cannot be
+     * bypassed with letter case, extra spaces, or a namespaced command
+     * (e.g. "essentials:warp").
+     *
+     * @param command command string (with or without leading slash)
+     * @return normalized tokens, empty array if the command is blank
+     */
+    public static String[] tokenizeCommand(String command) {
+        String trimmed = command.trim();
+        if (trimmed.startsWith("/"))
+            trimmed = trimmed.substring(1);
+        trimmed = trimmed.toLowerCase();
+        if (trimmed.isEmpty())
+            return new String[0];
+        String[] tokens = WHITESPACE.split(trimmed);
+        int colon = tokens[0].indexOf(':');
+        if (colon >= 0)
+            tokens[0] = tokens[0].substring(colon + 1);
+        return tokens;
+    }
+
+    /**
+     * Token-based match of an executed command against a configured blocked
+     * subcommand. The message is blocked when its leading tokens equal the
+     * subcommand's tokens (so "warp vip" matches "/warp vip", "/Warp vip",
+     * "/warp  vip" and "/essentials:warp vip", but not "/warp vipfoo").
+     *
+     * @param messageTokens tokens of the executed command, from {@link #tokenizeCommand(String)}
+     * @param subCommand    a configured blocked subcommand
+     * @return true if the subcommand matches
+     */
+    public static boolean subCommandMatches(String[] messageTokens, String subCommand) {
+        return tokensMatch(messageTokens, tokenizeCommand(subCommand));
+    }
+
+    /**
+     * Token-prefix match against an already tokenized subcommand. Lets callers
+     * reuse precomputed subcommand tokens instead of re-tokenizing on every call.
+     *
+     * @param messageTokens tokens of the executed command, from {@link #tokenizeCommand(String)}
+     * @param subTokens     pre-tokenized blocked subcommand, see {@link CWGroup#getSubCommandTokens()}
+     * @return true if the message's leading tokens equal the subcommand's tokens
+     */
+    public static boolean tokensMatch(String[] messageTokens, String[] subTokens) {
+        if (subTokens.length == 0 || messageTokens.length < subTokens.length)
+            return false;
+        for (int i = 0; i < subTokens.length; i++) {
+            if (!messageTokens[i].equals(subTokens[i]))
+                return false;
+        }
+        return true;
     }
 
     /**

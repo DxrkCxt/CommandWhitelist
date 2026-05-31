@@ -15,6 +15,6 @@ public class PlayerCommandSendListener implements Listener {
         Player player = event.getPlayer();
         if (player.hasPermission(CWPermission.BYPASS.permission())) return;
         HashSet<String> commandList = CommandWhitelistBukkit.getCommands(player);
-        event.getCommands().removeIf((cmd) -> !commandList.contains(cmd));
+        event.getCommands().removeIf((cmd) -> !commandList.contains(cmd.toLowerCase()));
     }
 }

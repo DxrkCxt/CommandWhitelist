@@ -12,8 +12,6 @@ import net.md_5.bungee.api.event.ChatEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.event.EventHandler;
 
-import java.util.HashSet;
-
 public class BungeeChatEventListener implements Listener {
 
     @EventHandler
@@ -31,8 +29,7 @@ public class BungeeChatEventListener implements Listener {
         BungeeAudiences audiences = CommandWhitelistWaterfall.getAudiences();
 
         String label = CommandUtil.getCommandLabel(command);
-        HashSet<String> commands = CommandWhitelistWaterfall.getCommands(player);
-        if (!commands.contains(label)) {
+        if (!CommandWhitelistWaterfall.isCommandAllowed(player, label)) {
             event.setCancelled(true);
             Component message = CWCommand.getParsedErrorMessage(
                     command,
@@ -49,13 +46,9 @@ public class BungeeChatEventListener implements Listener {
             return;
         }
 
-        HashSet<String> bannedSubCommands = CommandWhitelistWaterfall.getSuggestions(player);
-        for (String bannedSubCommand : bannedSubCommands) {
-            if (command.startsWith(bannedSubCommand)) {
-                event.setCancelled(true);
-                audiences.player(player).sendMessage(CWCommand.miniMessage.deserialize(configCache.prefix + configCache.subcommand_denied));
-                return;
-            }
+        if (CommandWhitelistWaterfall.isSubCommandBlocked(player, command)) {
+            event.setCancelled(true);
+            audiences.player(player).sendMessage(CWCommand.miniMessage.deserialize(configCache.prefix + configCache.subcommand_denied));
         }
     }
 }

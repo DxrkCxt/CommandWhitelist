@@ -15,11 +15,16 @@ public class BungeeTabcompleteListener implements Listener {
         ProxiedPlayer player = (ProxiedPlayer) event.getReceiver();
         if (event.getSuggestions().isEmpty()) return;
         if (player.hasPermission(CWPermission.BYPASS.permission())) return;
-        CommandUtil.filterSuggestions(
+        if (!CommandWhitelistWaterfall.getConfigCache().hasSubCommands) return;
+        var filtered = CommandUtil.filterSuggestions(
                 event.getCursor(),
                 event.getSuggestions(),
                 CommandWhitelistWaterfall.getSuggestions(player)
         );
+        if (filtered != event.getSuggestions()) {
+            event.getSuggestions().clear();
+            event.getSuggestions().addAll(filtered);
+        }
     }
 
 }

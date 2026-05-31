@@ -5,8 +5,8 @@ import eu.endermite.commandwhitelist.bukkit.listeners.AsyncTabCompleteBlockerLis
 import eu.endermite.commandwhitelist.bukkit.listeners.PlayerCommandPreProcessListener;
 import eu.endermite.commandwhitelist.bukkit.listeners.PlayerCommandSendListener;
 import eu.endermite.commandwhitelist.bukkit.listeners.TabCompleteBlockerListener;
-import eu.endermite.commandwhitelist.bukkit.listeners.protocollib.PacketCommandPreProcessListener;
 import eu.endermite.commandwhitelist.common.CWGroup;
+import eu.endermite.commandwhitelist.common.CommandUtil;
 import eu.endermite.commandwhitelist.common.ConfigCache;
 import eu.endermite.commandwhitelist.common.commands.CWCommand;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
@@ -16,7 +16,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.help.HelpTopic;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -37,15 +36,7 @@ public class CommandWhitelistBukkit extends JavaPlugin {
 
         reloadPluginConfig();
 
-        Plugin protocollib = getServer().getPluginManager().getPlugin("ProtocolLib");
-
-        if (!getConfigCache().useProtocolLib || protocollib == null || !protocollib.isEnabled()) {
-            getServer().getPluginManager().registerEvents(new PlayerCommandPreProcessListener(), this);
-        } else {
-            PacketCommandPreProcessListener.protocol(this);
-            getLogger().warning("Using ProtocolLib for command filter!");
-            getLogger().warning("Please make sure you actually need this. This is not a \"better way to do it\".");
-        }
+        getServer().getPluginManager().registerEvents(new PlayerCommandPreProcessListener(), this);
         try {
             // Use paper's async tab completions if possible
             Class.forName("com.destroystokyo.paper.event.server.AsyncTabCompleteEvent");
@@ -69,9 +60,9 @@ public class CommandWhitelistBukkit extends JavaPlugin {
         File configFile = new File("plugins/CommandWhitelist/config.yml");
         if (configCache == null) {
             try {
-                configCache = new ConfigCache(configFile, true, getSLF4JLogger());
+                configCache = new ConfigCache(configFile, getSLF4JLogger());
             } catch (NoSuchMethodError e) {
-                configCache = new ConfigCache(configFile, true, null);
+                configCache = new ConfigCache(configFile, null);
             }
             return;
         }
@@ -132,6 +123,44 @@ public class CommandWhitelistBukkit extends JavaPlugin {
             suggestionList.addAll(s.getValue().getSubCommands());
         }
         return suggestionList;
+    }
+
+    /**
+     * Allocation-free check whether the player may use the given command label.
+     *
+     * @param player Bukkit Player
+     * @param label  lowercase command label
+     * @return true if any group available to the player whitelists the command
+     */
+    public static boolean isCommandAllowed(Player player, String label) {
+        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
+            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
+                if (s.getValue().getCommands().contains(label))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Allocation-free check whether the message starts with a subcommand blocked for the player.
+     *
+     * @param player  Bukkit Player
+     * @param message command message without the leading slash
+     * @return true if a blocked subcommand matches
+     */
+    public static boolean isSubCommandBlocked(Player player, String message) {
+        String[] messageTokens = CommandUtil.tokenizeCommand(message);
+        if (messageTokens.length == 0) return false;
+        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
+            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
+                for (String[] subTokens : s.getValue().getSubCommandTokens()) {
+                    if (CommandUtil.tokensMatch(messageTokens, subTokens))
+                        return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

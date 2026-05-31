@@ -12,17 +12,15 @@ public class ConfigCache {
     private final File configFile;
     private ConfigFile config;
     private final Object logger;
-    private final boolean canDoProtocolLib;
-    private final HashMap<String, CWGroup> groupList = new LinkedHashMap<>();
+    private volatile HashMap<String, CWGroup> groupList = new LinkedHashMap<>();
     public String prefix, command_denied, no_permission, no_such_subcommand, config_reloaded, added_to_whitelist,
             removed_from_whitelist, group_doesnt_exist, subcommand_denied;
-    public boolean useProtocolLib = false;
     public MessageType messageType = MessageType.CHAT;
     public boolean debug = false;
+    public boolean hasSubCommands = false;
 
-    public ConfigCache(File configFile, boolean canDoProtocolLib, Object logger) {
+    public ConfigCache(File configFile, Object logger) {
         this.configFile = configFile;
-        this.canDoProtocolLib = canDoProtocolLib;
         this.logger = logger;
 
         try {
@@ -53,9 +51,6 @@ public class ConfigCache {
         config.addDefault("messages.group_doesnt_exist", "<red>Group doesn't exist or error occured");
 
         config.addComment("messages", "Messages use MiniMessage formatting (https://docs.adventure.kyori.net/minimessage/format)");
-
-        if (canDoProtocolLib)
-            config.addDefault("use_protocollib", false, "Do not enable if you don't have issues with aliased commands.\nThis requires server restart to take effect.");
 
         config.addDefault("message_type", MessageType.CHAT.toString(), "Valid message types are CHAT and ACTIONBAR. Does nothing on velocity.");
 
@@ -103,7 +98,6 @@ public class ConfigCache {
         added_to_whitelist = config.getString("messages.added_to_whitelist");
         removed_from_whitelist = config.getString("messages.removed_from_whitelist");
         group_doesnt_exist = config.getString("messages.group_doesnt_exist");
-        useProtocolLib = config.getBoolean("use_protocollib");
         debug = config.getBoolean("debug", false);
         try {
             String chatTypeId = config.getString("message_type");
@@ -117,9 +111,25 @@ public class ConfigCache {
         }
 
         ConfigSection groupSection = config.getConfigSection("groups");
+        LinkedHashMap<String, CWGroup> newGroups = new LinkedHashMap<>();
         for (String key : groupSection.getKeys(false)) {
-            groupList.put(key, loadCWGroup(key, groupSection));
+            newGroups.put(key, loadCWGroup(key, groupSection));
         }
+
+        boolean anySubCommands = false;
+        for (CWGroup group : newGroups.values()) {
+            if (!group.getSubCommands().isEmpty()) {
+                anySubCommands = true;
+                break;
+            }
+        }
+
+        // Atomically publish the freshly built group list: concurrent readers
+        // (command/tab listeners run async to this reload) never see a cleared or
+        // half-populated map, and groups removed from the config stop applying
+        // after a reload instead of lingering in memory.
+        groupList = newGroups;
+        hasSubCommands = anySubCommands;
 
         return saveConfig();
     }

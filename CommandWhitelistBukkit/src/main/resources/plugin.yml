@@ -6,8 +6,6 @@ main: eu.endermite.commandwhitelist.bukkit.CommandWhitelistBukkit
 authors: [YouHaveTrouble]
 website: youhavetrouble.me
 folia-supported: true
-softdepend:
-  - ProtocolLib
 description: Control what commands players can use
 commands:
   commandwhitelist:

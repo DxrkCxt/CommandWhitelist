@@ -52,7 +52,7 @@ public class CommandWhitelistVelocity {
 
     private void reloadConfig() {
         if (configCache == null)
-            configCache = new ConfigCache(folder.resolve("config.yml").toFile(), false, logger);
+            configCache = new ConfigCache(folder.resolve("config.yml").toFile(), logger);
         else
             configCache.reloadConfig();
     }
@@ -81,7 +81,7 @@ public class CommandWhitelistVelocity {
         HashSet<String> allowedCommands = getCommands(player);
         event.getRootNode().getChildren().removeIf((commandNode) ->
                 server.getCommandManager().hasCommand(commandNode.getName())
-                        && !allowedCommands.contains(commandNode.getName())
+                        && !allowedCommands.contains(commandNode.getName().toLowerCase())
         );
     }
 
@@ -96,21 +96,15 @@ public class CommandWhitelistVelocity {
         String command = event.getCommand().trim();
         if (command.startsWith("/")) command = command.substring(1);
 
-        HashSet<String> allowedCommands = getCommands(player);
         String label = CommandUtil.getCommandLabel(command);
-        if (server.getCommandManager().hasCommand(label) && !allowedCommands.contains(label)) {
+        if (server.getCommandManager().hasCommand(label) && !isCommandAllowed(player, label)) {
             event.setResult(CommandExecuteEvent.CommandResult.forwardToServer());
             return;
         }
 
-        HashSet<String> bannedSubCommands = getSuggestions(player);
-
-        for (String bannedSubCommand : bannedSubCommands) {
-            if (command.startsWith(bannedSubCommand)) {
-                event.setResult(CommandExecuteEvent.CommandResult.denied());
-                player.sendMessage(CWCommand.miniMessage.deserialize(configCache.prefix + configCache.subcommand_denied));
-                return;
-            }
+        if (isSubCommandBlocked(player, command)) {
+            event.setResult(CommandExecuteEvent.CommandResult.denied());
+            player.sendMessage(CWCommand.miniMessage.deserialize(configCache.prefix + configCache.subcommand_denied));
         }
     }
 
@@ -124,6 +118,7 @@ public class CommandWhitelistVelocity {
         String buffer = event.getPartialMessage();
 
         if (event.getSuggestions().isEmpty()) return;
+        if (!configCache.hasSubCommands) return;
 
         List<String> newSuggestions = CommandUtil.filterSuggestions(
                 buffer,
@@ -131,8 +126,10 @@ public class CommandWhitelistVelocity {
                 getSuggestions(player)
         );
 
-        event.getSuggestions().clear();
-        event.getSuggestions().addAll(newSuggestions);
+        if (newSuggestions != event.getSuggestions()) {
+            event.getSuggestions().clear();
+            event.getSuggestions().addAll(newSuggestions);
+        }
     }
 
     public ConfigCache getConfigCache() {
@@ -170,6 +167,36 @@ public class CommandWhitelistVelocity {
             suggestionList.addAll(s.getValue().getSubCommands());
         }
         return suggestionList;
+    }
+
+    /**
+     * Allocation-free check whether the player may use the given command label.
+     */
+    public boolean isCommandAllowed(Player player, String label) {
+        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
+            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
+                if (s.getValue().getCommands().contains(label))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Allocation-free check whether the command starts with a subcommand blocked for the player.
+     */
+    public boolean isSubCommandBlocked(Player player, String command) {
+        String[] messageTokens = CommandUtil.tokenizeCommand(command);
+        if (messageTokens.length == 0) return false;
+        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
+            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
+                for (String[] subTokens : s.getValue().getSubCommandTokens()) {
+                    if (CommandUtil.tokensMatch(messageTokens, subTokens))
+                        return true;
+                }
+            }
+        }
+        return false;
     }
 
     public ArrayList<String> getServerCommands() {

@@ -1,6 +1,7 @@
 package eu.endermite.commandwhitelist.waterfall;
 
 import eu.endermite.commandwhitelist.common.CWGroup;
+import eu.endermite.commandwhitelist.common.CommandUtil;
 import eu.endermite.commandwhitelist.common.ConfigCache;
 import eu.endermite.commandwhitelist.common.commands.CWCommand;
 import eu.endermite.commandwhitelist.waterfall.command.BungeeMainCommand;
@@ -62,7 +63,7 @@ public final class CommandWhitelistWaterfall extends Plugin {
 
     public void loadConfig() {
         if (configCache == null)
-            configCache = new ConfigCache(new File(getDataFolder(), "config.yml"), false, getLogger());
+            configCache = new ConfigCache(new File(getDataFolder(), "config.yml"), getLogger());
         else
             configCache.reloadConfig();
     }
@@ -104,6 +105,36 @@ public final class CommandWhitelistWaterfall extends Plugin {
             suggestionList.addAll(s.getValue().getSubCommands());
         }
         return suggestionList;
+    }
+
+    /**
+     * Allocation-free check whether the player may use the given command label.
+     */
+    public static boolean isCommandAllowed(ProxiedPlayer player, String label) {
+        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
+            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
+                if (s.getValue().getCommands().contains(label))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Allocation-free check whether the command starts with a subcommand blocked for the player.
+     */
+    public static boolean isSubCommandBlocked(ProxiedPlayer player, String command) {
+        String[] messageTokens = CommandUtil.tokenizeCommand(command);
+        if (messageTokens.length == 0) return false;
+        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
+            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
+                for (String[] subTokens : s.getValue().getSubCommandTokens()) {
+                    if (CommandUtil.tokensMatch(messageTokens, subTokens))
+                        return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

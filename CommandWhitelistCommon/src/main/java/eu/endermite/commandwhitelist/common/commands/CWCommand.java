@@ -8,7 +8,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.Tag;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -144,12 +143,7 @@ public class CWCommand {
      * @return parsed message component
      */
     public static Component getParsedErrorMessage(String inputCommandString, String message) {
-        MiniMessage miniMessage = MiniMessage.builder()
-                .tags(TagResolver.builder()
-                        .resolvers(StandardTags.defaults(), commandContentResolver(inputCommandString))
-                        .build())
-                .build();
-        return miniMessage.deserialize(message);
+        return miniMessage.deserialize(message, commandContentResolver(inputCommandString));
     }
 
     private static TagResolver commandContentResolver(String rawCommand) {
