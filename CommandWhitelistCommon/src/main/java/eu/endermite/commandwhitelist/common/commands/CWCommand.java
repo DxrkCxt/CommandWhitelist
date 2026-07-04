@@ -12,6 +12,7 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 
 public class CWCommand {
 
@@ -107,8 +108,9 @@ public class CWCommand {
                     if (!adminPerm) return list;
                     CWGroup group = config.getGroupList().get(args[1]);
                     if (group == null) return list;
+                    String removePrefix = args[2].toLowerCase(Locale.ROOT);
                     for (String s : group.getCommands()) {
-                        if (s.startsWith(args[2]))
+                        if (s.startsWith(removePrefix))
                             list.add(s);
                     }
                     return list;
@@ -117,6 +119,7 @@ public class CWCommand {
                     if (!adminPerm) return list;
                     CWGroup group = config.getGroupList().get(args[1]);
                     if (group == null) return list;
+                    String addPrefix = args[2].toLowerCase(Locale.ROOT);
                     for (String cmd : serverCommands) {
                         if (cmd.startsWith("/"))
                             cmd = cmd.substring(1);
@@ -125,8 +128,9 @@ public class CWCommand {
                             if (cmdSplit.length < 2) continue;
                             cmd = cmdSplit[1];
                         }
-                        if (group.getCommands().contains(cmd)) continue;
-                        if (cmd.startsWith(args[2]))
+                        String lowerCmd = cmd.toLowerCase(Locale.ROOT);
+                        if (group.getCommands().contains(lowerCmd)) continue;
+                        if (lowerCmd.startsWith(addPrefix))
                             list.add(cmd);
                     }
                     return list;

@@ -3,19 +3,20 @@ package eu.endermite.commandwhitelist.common;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CWGroup {
 
     private final String id, permission, commandDeniedMessage;
-    private final HashSet<String> commands = new HashSet<>();
-    private final HashSet<String> subCommands = new HashSet<>();
-    private List<String[]> subCommandTokens = new ArrayList<>();
+    private final Set<String> commands = ConcurrentHashMap.newKeySet();
+    private final Set<String> subCommands = ConcurrentHashMap.newKeySet();
+    private volatile List<String[]> subCommandTokens = new ArrayList<>();
 
     public CWGroup(String id, Collection<String> commands, Collection<String> subCommands, String custom_command_denied_message) {
         this.id = id;
         this.permission = "commandwhitelist.group." + id;
         for (String command : commands)
-            this.commands.add(command.toLowerCase());
+            this.commands.add(command.toLowerCase(Locale.ROOT));
         this.commandDeniedMessage = custom_command_denied_message;
         this.subCommands.addAll(subCommands);
         recomputeSubCommandTokens();
@@ -29,7 +30,7 @@ public class CWGroup {
         return permission;
     }
 
-    public HashSet<String> getCommands() {
+    public Set<String> getCommands() {
         return commands;
     }
 
@@ -38,14 +39,14 @@ public class CWGroup {
     }
 
     public void addCommand(String command) {
-        commands.add(command.toLowerCase());
+        commands.add(command.toLowerCase(Locale.ROOT));
     }
 
     public void removeCommand(String command) {
-        commands.remove(command.toLowerCase());
+        commands.remove(command.toLowerCase(Locale.ROOT));
     }
 
-    public HashSet<String> getSubCommands() {
+    public Set<String> getSubCommands() {
         return subCommands;
     }
 

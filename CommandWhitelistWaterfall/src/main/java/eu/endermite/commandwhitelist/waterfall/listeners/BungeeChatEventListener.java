@@ -12,6 +12,8 @@ import net.md_5.bungee.api.event.ChatEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.event.EventHandler;
 
+import java.util.Locale;
+
 public class BungeeChatEventListener implements Listener {
 
     @EventHandler
@@ -22,7 +24,7 @@ public class BungeeChatEventListener implements Listener {
         ProxiedPlayer player = (ProxiedPlayer) event.getSender();
         if (player.hasPermission(CWPermission.BYPASS.permission())) return;
 
-        String command = event.getMessage().toLowerCase();
+        String command = event.getMessage().toLowerCase(Locale.ROOT);
         if (command.startsWith("/"))
             command = command.substring(1);
         ConfigCache configCache = CommandWhitelistWaterfall.getConfigCache();

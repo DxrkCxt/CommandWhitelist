@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -95,6 +97,15 @@ class CommandUtilTest {
         assertEquals("warp", CommandUtil.getCommandLabel("/warp"));
     }
 
+    @Test
+    void commandLabelStripsNamespace() {
+        // must match tokenizeCommand's namespace-stripping, since both feed the same
+        // whitelist lookup (allow-path vs. block-path) against the same lowercase-only set
+        assertEquals("warp", CommandUtil.getCommandLabel("essentials:warp"));
+        assertEquals("help", CommandUtil.getCommandLabel("minecraft:help"));
+        assertEquals("warp", CommandUtil.getCommandLabel("/essentials:warp vip"));
+    }
+
     // --- filterSuggestions (PERF-002) ---
 
     @Test
@@ -112,5 +123,77 @@ class CommandUtilTest {
         List<String> result = CommandUtil.filterSuggestions("/warp ", suggestions, List.of());
         // no copy is allocated when the blocked set is empty
         assertSame(suggestions, result);
+    }
+
+    @Test
+    void filterIgnoresCaseOfBufferAndBlockedSubCommand() {
+        List<String> suggestions = new ArrayList<>(Arrays.asList("vip", "home"));
+        List<String> result = CommandUtil.filterSuggestions("/WARP ", suggestions, List.of("Warp VIP"));
+        assertEquals(List.of("home"), result);
+    }
+
+    @Test
+    void filterCollapsesRepeatedSpacesInBuffer() {
+        List<String> suggestions = new ArrayList<>(Arrays.asList("vip", "home"));
+        List<String> result = CommandUtil.filterSuggestions("/warp   ", suggestions, List.of("warp vip"));
+        assertEquals(List.of("home"), result);
+    }
+
+    @Test
+    void filterStripsNamespaceFromBuffer() {
+        List<String> suggestions = new ArrayList<>(Arrays.asList("vip", "home"));
+        List<String> result = CommandUtil.filterSuggestions("/essentials:warp ", suggestions, List.of("warp vip"));
+        assertEquals(List.of("home"), result);
+    }
+
+    @Test
+    void filterRemovesSuggestionRegardlessOfItsOwnCase() {
+        // the blocked "last argument" is matched case-insensitively against the actual
+        // server-supplied suggestion strings too, not just exact-case List.remove
+        List<String> suggestions = new ArrayList<>(Arrays.asList("VIP", "home"));
+        List<String> result = CommandUtil.filterSuggestions("/warp ", suggestions, List.of("warp vip"));
+        assertEquals(List.of("home"), result);
+    }
+
+    // --- isCommandAllowed / isSubCommandBlocked: shared across Bukkit/Velocity/Waterfall,
+    // so the whitelist-check logic can be exercised here without any platform Player mock ---
+
+    @Test
+    void commandAllowedForDefaultGroupRegardlessOfPermission() {
+        Map<String, CWGroup> groups = new LinkedHashMap<>();
+        groups.put("default", new CWGroup("default", List.of("spawn"), List.of(), ""));
+        assertTrue(CommandUtil.isCommandAllowed(groups, "spawn", permission -> false));
+    }
+
+    @Test
+    void commandAllowedOnlyWithGroupPermission() {
+        Map<String, CWGroup> groups = new LinkedHashMap<>();
+        CWGroup vip = new CWGroup("vip", List.of("fly"), List.of(), "");
+        groups.put("vip", vip);
+        assertFalse(CommandUtil.isCommandAllowed(groups, "fly", permission -> false));
+        assertTrue(CommandUtil.isCommandAllowed(groups, "fly", vip.getPermission()::equals));
+    }
+
+    @Test
+    void commandNotAllowedWhenNotWhitelistedAnywhere() {
+        Map<String, CWGroup> groups = new LinkedHashMap<>();
+        groups.put("default", new CWGroup("default", List.of("spawn"), List.of(), ""));
+        assertFalse(CommandUtil.isCommandAllowed(groups, "ban", permission -> true));
+    }
+
+    @Test
+    void subCommandBlockedForDefaultGroupRegardlessOfPermission() {
+        Map<String, CWGroup> groups = new LinkedHashMap<>();
+        groups.put("default", new CWGroup("default", List.of(), List.of("warp vip"), ""));
+        assertTrue(CommandUtil.isSubCommandBlocked(groups, "/Warp  vip", permission -> false));
+    }
+
+    @Test
+    void subCommandBlockedOnlyWithGroupPermission() {
+        Map<String, CWGroup> groups = new LinkedHashMap<>();
+        CWGroup vip = new CWGroup("vip", List.of(), List.of("warp vip"), "");
+        groups.put("vip", vip);
+        assertFalse(CommandUtil.isSubCommandBlocked(groups, "/warp vip", permission -> false));
+        assertTrue(CommandUtil.isSubCommandBlocked(groups, "/warp vip", vip.getPermission()::equals));
     }
 }

@@ -13,13 +13,15 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
+import java.util.Locale;
+
 public class PlayerCommandPreProcessListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void PlayerExecuteCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
         if (player.hasPermission(CWPermission.BYPASS.permission())) return;
         String caseSensitiveLabel = CommandUtil.getCommandLabel(event.getMessage());
-        String label = caseSensitiveLabel.toLowerCase();
+        String label = caseSensitiveLabel.toLowerCase(Locale.ROOT);
         String messageWithoutSlash = event.getMessage().startsWith("/") ? event.getMessage().substring(1) : event.getMessage();
 
         BukkitAudiences audiences = CommandWhitelistBukkit.getAudiences();

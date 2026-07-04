@@ -8,6 +8,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 import java.util.HashSet;
+import java.util.Locale;
 
 public class PlayerCommandSendListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
@@ -15,6 +16,6 @@ public class PlayerCommandSendListener implements Listener {
         Player player = event.getPlayer();
         if (player.hasPermission(CWPermission.BYPASS.permission())) return;
         HashSet<String> commandList = CommandWhitelistBukkit.getCommands(player);
-        event.getCommands().removeIf((cmd) -> !commandList.contains(cmd.toLowerCase()));
+        event.getCommands().removeIf((cmd) -> !commandList.contains(cmd.toLowerCase(Locale.ROOT)));
     }
 }

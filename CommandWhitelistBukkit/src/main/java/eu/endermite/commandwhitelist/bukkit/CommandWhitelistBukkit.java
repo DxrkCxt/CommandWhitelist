@@ -133,13 +133,7 @@ public class CommandWhitelistBukkit extends JavaPlugin {
      * @return true if any group available to the player whitelists the command
      */
     public static boolean isCommandAllowed(Player player, String label) {
-        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
-            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
-                if (s.getValue().getCommands().contains(label))
-                    return true;
-            }
-        }
-        return false;
+        return CommandUtil.isCommandAllowed(configCache.getGroupList(), label, player::hasPermission);
     }
 
     /**
@@ -150,17 +144,7 @@ public class CommandWhitelistBukkit extends JavaPlugin {
      * @return true if a blocked subcommand matches
      */
     public static boolean isSubCommandBlocked(Player player, String message) {
-        String[] messageTokens = CommandUtil.tokenizeCommand(message);
-        if (messageTokens.length == 0) return false;
-        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
-            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
-                for (String[] subTokens : s.getValue().getSubCommandTokens()) {
-                    if (CommandUtil.tokensMatch(messageTokens, subTokens))
-                        return true;
-                }
-            }
-        }
-        return false;
+        return CommandUtil.isSubCommandBlocked(configCache.getGroupList(), message, player::hasPermission);
     }
 
     /**

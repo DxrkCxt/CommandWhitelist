@@ -17,7 +17,7 @@ public class ConfigCache {
             removed_from_whitelist, group_doesnt_exist, subcommand_denied;
     public MessageType messageType = MessageType.CHAT;
     public boolean debug = false;
-    public boolean hasSubCommands = false;
+    public volatile boolean hasSubCommands = false;
 
     public ConfigCache(File configFile, Object logger) {
         this.configFile = configFile;

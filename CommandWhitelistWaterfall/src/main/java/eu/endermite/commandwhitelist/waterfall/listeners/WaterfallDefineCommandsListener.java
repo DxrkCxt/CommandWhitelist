@@ -18,8 +18,8 @@ public class WaterfallDefineCommandsListener implements Listener {
             if (player.hasPermission(CWPermission.BYPASS.permission())) return;
             HashSet<String> allowed = new HashSet<>();
             for (String cmdName : CommandWhitelistWaterfall.getCommands(player))
-                allowed.add(cmdName.toLowerCase(Locale.ENGLISH));
-            event.getCommands().values().removeIf((cmd) -> !allowed.contains(cmd.getName().toLowerCase(Locale.ENGLISH)));
+                allowed.add(cmdName.toLowerCase(Locale.ROOT));
+            event.getCommands().values().removeIf((cmd) -> !allowed.contains(cmd.getName().toLowerCase(Locale.ROOT)));
         }
     }
 }

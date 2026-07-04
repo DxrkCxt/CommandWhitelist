@@ -81,7 +81,7 @@ public class CommandWhitelistVelocity {
         HashSet<String> allowedCommands = getCommands(player);
         event.getRootNode().getChildren().removeIf((commandNode) ->
                 server.getCommandManager().hasCommand(commandNode.getName())
-                        && !allowedCommands.contains(commandNode.getName().toLowerCase())
+                        && !allowedCommands.contains(commandNode.getName().toLowerCase(Locale.ROOT))
         );
     }
 
@@ -96,7 +96,7 @@ public class CommandWhitelistVelocity {
         String command = event.getCommand().trim();
         if (command.startsWith("/")) command = command.substring(1);
 
-        String label = CommandUtil.getCommandLabel(command);
+        String label = CommandUtil.getCommandLabel(command).toLowerCase(Locale.ROOT);
         if (server.getCommandManager().hasCommand(label) && !isCommandAllowed(player, label)) {
             event.setResult(CommandExecuteEvent.CommandResult.forwardToServer());
             return;
@@ -173,30 +173,14 @@ public class CommandWhitelistVelocity {
      * Allocation-free check whether the player may use the given command label.
      */
     public boolean isCommandAllowed(Player player, String label) {
-        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
-            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
-                if (s.getValue().getCommands().contains(label))
-                    return true;
-            }
-        }
-        return false;
+        return CommandUtil.isCommandAllowed(configCache.getGroupList(), label, player::hasPermission);
     }
 
     /**
      * Allocation-free check whether the command starts with a subcommand blocked for the player.
      */
     public boolean isSubCommandBlocked(Player player, String command) {
-        String[] messageTokens = CommandUtil.tokenizeCommand(command);
-        if (messageTokens.length == 0) return false;
-        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
-            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
-                for (String[] subTokens : s.getValue().getSubCommandTokens()) {
-                    if (CommandUtil.tokensMatch(messageTokens, subTokens))
-                        return true;
-                }
-            }
-        }
-        return false;
+        return CommandUtil.isSubCommandBlocked(configCache.getGroupList(), command, player::hasPermission);
     }
 
     public ArrayList<String> getServerCommands() {

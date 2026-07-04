@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 public class CommandUtil {
@@ -24,18 +27,41 @@ public class CommandUtil {
     public static List<String> filterSuggestions(String buffer, Collection<String> suggestions, Collection<String> blockedSubCommands) {
         if (suggestions.isEmpty() || blockedSubCommands.isEmpty())
             return suggestions instanceof List ? (List<String>) suggestions : new ArrayList<>(suggestions);
-        if (buffer.startsWith("/"))
-            buffer = buffer.substring(1);
+        String normalizedBuffer = normalizeForPrefixMatch(buffer);
         List<String> suggestionsList = new ArrayList<>(suggestions);
         for (String s : blockedSubCommands) {
-            String scommand = cutLastArgument(s);
-            if (buffer.startsWith(scommand)) {
-                String slast = getLastArgument(s);
-                while (suggestionsList.contains(slast))
-                    suggestionsList.remove(slast);
+            String normalizedSubCommand = normalizeForPrefixMatch(s);
+            String scommand = cutLastArgument(normalizedSubCommand);
+            if (normalizedBuffer.startsWith(scommand)) {
+                String slast = getLastArgument(normalizedSubCommand);
+                suggestionsList.removeIf(suggestion -> suggestion.equalsIgnoreCase(slast));
             }
         }
         return suggestionsList;
+    }
+
+    /**
+     * Normalizes a command/subcommand string for prefix matching in {@link #filterSuggestions}
+     * the same way {@link #tokenizeCommand} normalizes for exact matching: strips a leading
+     * slash, lowercases, collapses repeated whitespace, and strips a leading "namespace:" from
+     * the label. Unlike {@code tokenizeCommand}, this preserves a meaningful trailing space
+     * (signaling "the player has moved on to the next argument") instead of trimming it away.
+     *
+     * @param command command string (with or without leading slash)
+     * @return normalized string, safe to use with {@link String#startsWith(String)}
+     */
+    private static String normalizeForPrefixMatch(String command) {
+        String result = command.startsWith("/") ? command.substring(1) : command;
+        boolean trailingSpace = result.endsWith(" ");
+        result = WHITESPACE.matcher(result.trim()).replaceAll(" ").toLowerCase(Locale.ROOT);
+        if (trailingSpace && !result.isEmpty())
+            result = result + " ";
+        int space = result.indexOf(' ');
+        String label = space == -1 ? result : result.substring(0, space);
+        int colon = label.indexOf(':');
+        if (colon >= 0)
+            result = label.substring(colon + 1) + (space == -1 ? "" : result.substring(space));
+        return result;
     }
 
     /**
@@ -61,6 +87,10 @@ public class CommandUtil {
     }
 
     /**
+     * Strips a leading slash and namespace (e.g. "essentials:") the same way
+     * {@link #tokenizeCommand(String)} does, so this and the block-path tokenizer
+     * agree on what "the command label" is for the same input.
+     *
      * @param cmd The command
      * @return Command label
      */
@@ -69,6 +99,9 @@ public class CommandUtil {
         String label = space == -1 ? cmd : cmd.substring(0, space);
         if (label.startsWith("/"))
             label = label.substring(1);
+        int colon = label.indexOf(':');
+        if (colon >= 0)
+            label = label.substring(colon + 1);
         return label;
     }
 
@@ -86,7 +119,7 @@ public class CommandUtil {
         String trimmed = command.trim();
         if (trimmed.startsWith("/"))
             trimmed = trimmed.substring(1);
-        trimmed = trimmed.toLowerCase();
+        trimmed = trimmed.toLowerCase(Locale.ROOT);
         if (trimmed.isEmpty())
             return new String[0];
         String[] tokens = WHITESPACE.split(trimmed);
@@ -126,6 +159,51 @@ public class CommandUtil {
                 return false;
         }
         return true;
+    }
+
+    /**
+     * Allocation-free check whether a user may run the given command label. Shared by all
+     * three platforms (Bukkit/Velocity/Waterfall) so the whitelist-check logic, and its
+     * normalization requirements, only has to be correct in one place instead of being
+     * copy-pasted per platform.
+     *
+     * @param groupList     the currently active groups, see {@link ConfigCache#getGroupList()}
+     * @param label         normalized (lowercase, namespace-stripped) command label,
+     *                      see {@link #getCommandLabel(String)}
+     * @param hasPermission tests whether the user holds a given permission node
+     * @return true if any group available to the user whitelists the command
+     */
+    public static boolean isCommandAllowed(Map<String, CWGroup> groupList, String label, Predicate<String> hasPermission) {
+        for (Map.Entry<String, CWGroup> group : groupList.entrySet()) {
+            if (group.getKey().equalsIgnoreCase("default") || hasPermission.test(group.getValue().getPermission())) {
+                if (group.getValue().getCommands().contains(label))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Allocation-free check whether the given command starts with a subcommand blocked for
+     * the user. Shared by all three platforms, see {@link #isCommandAllowed}.
+     *
+     * @param groupList     the currently active groups, see {@link ConfigCache#getGroupList()}
+     * @param command       command message (with or without leading slash), see {@link #tokenizeCommand(String)}
+     * @param hasPermission tests whether the user holds a given permission node
+     * @return true if a blocked subcommand matches
+     */
+    public static boolean isSubCommandBlocked(Map<String, CWGroup> groupList, String command, Predicate<String> hasPermission) {
+        String[] messageTokens = tokenizeCommand(command);
+        if (messageTokens.length == 0) return false;
+        for (Map.Entry<String, CWGroup> group : groupList.entrySet()) {
+            if (group.getKey().equalsIgnoreCase("default") || hasPermission.test(group.getValue().getPermission())) {
+                for (String[] subTokens : group.getValue().getSubCommandTokens()) {
+                    if (tokensMatch(messageTokens, subTokens))
+                        return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

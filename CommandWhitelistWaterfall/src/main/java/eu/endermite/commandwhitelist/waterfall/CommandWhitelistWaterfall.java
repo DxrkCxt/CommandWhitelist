@@ -111,30 +111,14 @@ public final class CommandWhitelistWaterfall extends Plugin {
      * Allocation-free check whether the player may use the given command label.
      */
     public static boolean isCommandAllowed(ProxiedPlayer player, String label) {
-        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
-            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
-                if (s.getValue().getCommands().contains(label))
-                    return true;
-            }
-        }
-        return false;
+        return CommandUtil.isCommandAllowed(configCache.getGroupList(), label, player::hasPermission);
     }
 
     /**
      * Allocation-free check whether the command starts with a subcommand blocked for the player.
      */
     public static boolean isSubCommandBlocked(ProxiedPlayer player, String command) {
-        String[] messageTokens = CommandUtil.tokenizeCommand(command);
-        if (messageTokens.length == 0) return false;
-        for (Map.Entry<String, CWGroup> s : configCache.getGroupList().entrySet()) {
-            if (s.getKey().equalsIgnoreCase("default") || player.hasPermission(s.getValue().getPermission())) {
-                for (String[] subTokens : s.getValue().getSubCommandTokens()) {
-                    if (CommandUtil.tokensMatch(messageTokens, subTokens))
-                        return true;
-                }
-            }
-        }
-        return false;
+        return CommandUtil.isSubCommandBlocked(configCache.getGroupList(), command, player::hasPermission);
     }
 
     /**
